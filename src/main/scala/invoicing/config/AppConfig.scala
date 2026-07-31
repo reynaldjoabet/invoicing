@@ -10,13 +10,15 @@ final case class DbConfig(
     database: String,
     poolMax: Int
 )
+
 final case class HttpConfig(host: String, port: Int)
 final case class AppConfig(db: DbConfig, http: HttpConfig)
 
 object AppConfig {
+
   def load[F[_]: Sync]: F[AppConfig] = Sync[F].delay {
-    def env(name: String): Option[String] = sys.env.get(name).filter(_.nonEmpty)
-    def req(name: String): String = env(name).getOrElse(sys.error(s"missing env var: $name"))
+    def env(name: String): Option[String]    = sys.env.get(name).filter(_.nonEmpty)
+    def req(name: String): String            = env(name).getOrElse(sys.error(s"missing env var: $name"))
     def int(name: String, default: Int): Int = env(name).map(_.toInt).getOrElse(default)
 
     AppConfig(
@@ -34,4 +36,5 @@ object AppConfig {
       )
     )
   }
+
 }

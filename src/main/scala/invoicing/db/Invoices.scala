@@ -1,16 +1,17 @@
 package invoicing.db
 
-import invoicing.domain.*
+import java.time.{Instant, ZoneOffset}
 
 import cats.effect.*
 import cats.syntax.all.*
-import skunk.*
-import skunk.implicits.*
-import skunk.codec.all.*
 
-import java.time.{Instant, ZoneOffset}
+import invoicing.domain.*
+import skunk.*
+import skunk.codec.all.*
+import skunk.implicits.*
 
 trait Invoices[F[_]] {
+
   def insert(invoice: Invoice, lines: List[InvoiceLine]): F[Invoice]
   def find(id: InvoiceId): F[Option[Invoice]]
   def linesFor(invoiceId: InvoiceId): F[List[InvoiceLine]]
@@ -20,15 +21,16 @@ trait Invoices[F[_]] {
   def markPaid(id: InvoiceId, at: Instant): F[Unit]
   def updateStatus(id: InvoiceId, status: InvoiceStatus): F[Unit]
   def nextNumber(billerId: BusinessId): F[Long]
+
 }
 
 object Invoices {
 
   import Codecs.{
-    invoice as invoiceC,
-    invoiceLine as lineC,
-    invoiceId as invoiceIdC,
     businessId as businessIdC,
+    invoice as invoiceC,
+    invoiceId as invoiceIdC,
+    invoiceLine as lineC,
     invoiceStatus as statusC
   }
 
@@ -39,7 +41,7 @@ object Invoices {
         s.transaction.use { _ =>
           for {
             saved <- s.prepare(Q.insertInv).flatMap(_.unique(inv))
-            _ <- s.prepare(Q.insertLine).flatMap(pc => lines.traverse_(pc.execute))
+            _     <- s.prepare(Q.insertLine).flatMap(pc => lines.traverse_(pc.execute))
           } yield saved
         }
       }
@@ -65,8 +67,9 @@ object Invoices {
     def updateStatus(id: InvoiceId, status: InvoiceStatus): F[Unit] =
       pool.use(_.prepare(Q.setStatus).flatMap(_.execute((status, id)))).void
 
-    /** Per-biller monotonically-increasing counter. Runs inside an UPSERT so the row is created on first call. The
-      * transaction is held by the invoicing service when issuing an invoice.
+    /**
+      * Per-biller monotonically-increasing counter. Runs inside an UPSERT so the row is created on
+      * first call. The transaction is held by the invoicing service when issuing an invoice.
       */
     def nextNumber(billerId: BusinessId): F[Long] =
       pool.use(_.prepare(Q.bumpCounter).flatMap(_.unique(billerId)))
@@ -124,5 +127,7 @@ object Invoices {
       sql"""INSERT INTO invoice_counters (biller_id, next_seq) VALUES ($businessIdC, 2)
             ON CONFLICT (biller_id) DO UPDATE SET next_seq = invoice_counters.next_seq + 1
             RETURNING next_seq - 1""".query(int8)
+
   }
+
 }

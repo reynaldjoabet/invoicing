@@ -1,19 +1,21 @@
 package invoicing.db
 
-import invoicing.domain.*
+import java.time.{Instant, ZoneOffset}
 
 import cats.effect.*
 import cats.syntax.all.*
-import skunk.*
-import skunk.implicits.*
-import skunk.codec.all.*
 
-import java.time.{Instant, ZoneOffset}
+import invoicing.domain.*
+import skunk.*
+import skunk.codec.all.*
+import skunk.implicits.*
 
 trait Payments[F[_]] {
+
   def insert(p: Payment): F[Payment]
   def find(id: PaymentId): F[Option[Payment]]
   def listFor(invoiceId: InvoiceId): F[List[Payment]]
+
   def updateStatus(
       id: PaymentId,
       status: PaymentStatus,
@@ -21,11 +23,17 @@ trait Payments[F[_]] {
       failure: Option[String],
       completed: Option[Instant]
   ): F[Unit]
+
 }
 
 object Payments {
 
-  import Codecs.{payment as paymentC, paymentId as paymentIdC, invoiceId as invoiceIdC, paymentStatus as statusC}
+  import Codecs.{
+    invoiceId as invoiceIdC,
+    payment as paymentC,
+    paymentId as paymentIdC,
+    paymentStatus as statusC
+  }
 
   def make[F[_]: Concurrent](pool: Resource[F, Session[F]]): Payments[F] = new Payments[F] {
 
@@ -85,11 +93,16 @@ object Payments {
                    initiated_at, completed_at
             FROM payments WHERE invoice_id = $invoiceIdC ORDER BY initiated_at""".query(paymentC)
 
-    val setStatus
-        : Command[(PaymentStatus, Option[String], Option[String], Option[java.time.OffsetDateTime], PaymentId)] =
+    val setStatus: Command[
+      (PaymentStatus, Option[String], Option[String], Option[java.time.OffsetDateTime], PaymentId)
+    ] =
       sql"""UPDATE payments
-            SET status = $statusC, rail_ref = ${varchar(128).opt}, failure_reason = ${varchar(512).opt},
+            SET status = $statusC, rail_ref = ${varchar(128).opt}, failure_reason = ${varchar(
+          512
+        ).opt},
                 completed_at = ${timestamptz.opt}
             WHERE id = $paymentIdC""".command
+
   }
+
 }

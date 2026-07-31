@@ -1,20 +1,22 @@
 package invoicing.service
 
-import invoicing.domain.*
-import invoicing.db.*
-import invoicing.external.Notifications
+import java.time.{Instant, LocalDate}
+import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
 
-import java.time.{Instant, LocalDate}
-import java.util.UUID
+import invoicing.db.*
+import invoicing.domain.*
+import invoicing.external.Notifications
 
-/** Issuing and sending invoices.
+/**
+  * Issuing and sending invoices.
   *
-  * `issue` builds an invoice from a list of (service, qty) pairs (or raw lines) applying tax per line, computing header
-  * totals, and assigning a per-biller monotonically-increasing invoice number. If `deliveryMode = Auto` the invoice is
-  * sent immediately and the notification is dispatched.
+  * `issue` builds an invoice from a list of (service, qty) pairs (or raw lines) applying tax per
+  * line, computing header totals, and assigning a per-biller monotonically-increasing invoice
+  * number. If `deliveryMode = Auto` the invoice is sent immediately and the notification is
+  * dispatched.
   */
 trait InvoicingService[F[_]] {
 
@@ -32,11 +34,14 @@ trait InvoicingService[F[_]] {
 
   def send(invoiceId: InvoiceId): F[Either[InvoicingService.Error, Invoice]]
   def cancel(invoiceId: InvoiceId): F[Unit]
+
 }
 
 object InvoicingService {
 
-  /** A single line as posted by the biller. */
+  /**
+    * A single line as posted by the biller.
+    */
   final case class LineInput(
       serviceId: Option[ServiceId],
       description: Title,
@@ -47,14 +52,16 @@ object InvoicingService {
 
   sealed trait Error
   object Error {
-    case object BillerNotFound extends Error
-    case object PayerNotFound extends Error
-    case object KybNotApproved extends Error
-    case object NoLines extends Error
-    case object InvalidDueDate extends Error
-    case object NotFound extends Error
-    case object AlreadySent extends Error
+
+    case object BillerNotFound   extends Error
+    case object PayerNotFound    extends Error
+    case object KybNotApproved   extends Error
+    case object NoLines          extends Error
+    case object InvalidDueDate   extends Error
+    case object NotFound         extends Error
+    case object AlreadySent      extends Error
     case object CurrencyMismatch extends Error
+
   }
 
   def make[F[_]: Sync](
@@ -93,35 +100,37 @@ object InvoicingService {
         case Left(err) => Sync[F].pure(Left(err))
         case Right(_)  =>
           for {
-            seq <- invoices.nextNumber(billerId)
-            number = InvoiceNumber.assume(f"INV-${seq}%06d")
-            now <- Sync[F].delay(Instant.now())
-            invId = InvoiceId.assume(UUID.randomUUID())
-            built = lines.map(buildLine(invId, _))
+            seq   <- invoices.nextNumber(billerId)
+            number = InvoiceNumber.assume(f"INV-$seq%06d")
+            now   <- Sync[F].delay(Instant.now())
+            invId  = InvoiceId.assume(UUID.randomUUID())
+            built  = lines.map(buildLine(invId, _))
             netSum = built.map(_.netMinor.value).sum
             taxSum = built.map(_.taxMinor.value).sum
             totSum = built.map(_.totalMinor.value).sum
-            inv = Invoice(
-              id = invId,
-              number = number,
-              billerId = billerId,
-              payerId = payerId,
-              agreementId = agreementId,
-              currency = currency,
-              netMinor = AmountMinor.applyUnsafe(netSum),
-              taxMinor = TaxMinor.applyUnsafe(taxSum),
-              totalMinor = AmountMinor.applyUnsafe(totSum),
-              issuedOn = issuedOn,
-              dueOn = dueOn,
-              status = if (deliveryMode == InvoiceDeliveryMode.Auto) InvoiceStatus.Sent else InvoiceStatus.Draft,
-              deliveryMode = deliveryMode,
-              notes = notes,
-              createdAt = now,
-              sentAt = if (deliveryMode == InvoiceDeliveryMode.Auto) Some(now) else None,
-              paidAt = None
-            )
+            inv    = Invoice(
+                    id = invId,
+                    number = number,
+                    billerId = billerId,
+                    payerId = payerId,
+                    agreementId = agreementId,
+                    currency = currency,
+                    netMinor = AmountMinor.applyUnsafe(netSum),
+                    taxMinor = TaxMinor.applyUnsafe(taxSum),
+                    totalMinor = AmountMinor.applyUnsafe(totSum),
+                    issuedOn = issuedOn,
+                    dueOn = dueOn,
+                    status =
+                      if (deliveryMode == InvoiceDeliveryMode.Auto) InvoiceStatus.Sent
+                      else InvoiceStatus.Draft,
+                    deliveryMode = deliveryMode,
+                    notes = notes,
+                    createdAt = now,
+                    sentAt = if (deliveryMode == InvoiceDeliveryMode.Auto) Some(now) else None,
+                    paidAt = None
+                  )
             saved <- invoices.insert(inv, built)
-            _ <- if (deliveryMode == InvoiceDeliveryMode.Auto) notify(saved) else Sync[F].unit
+            _     <- if (deliveryMode == InvoiceDeliveryMode.Auto) notify(saved) else Sync[F].unit
           } yield Right(saved)
       }
     }
@@ -132,10 +141,10 @@ object InvoicingService {
         case Some(inv) if inv.status != InvoiceStatus.Draft => Sync[F].pure(Left(Error.AlreadySent))
         case Some(inv)                                      =>
           for {
-            now <- Sync[F].delay(Instant.now())
-            _ <- invoices.markSent(invoiceId, now)
+            now    <- Sync[F].delay(Instant.now())
+            _      <- invoices.markSent(invoiceId, now)
             updated = inv.copy(status = InvoiceStatus.Sent, sentAt = Some(now))
-            _ <- notify(updated)
+            _      <- notify(updated)
           } yield Right(updated)
       }
 
@@ -146,12 +155,14 @@ object InvoicingService {
       lookupContact(inv.payerId).flatMap(_.traverse_(notifications.emailInvoiceSent(_, inv)))
   }
 
-  /** Compute the four numbers a line carries: net, tax, total. */
+  /**
+    * Compute the four numbers a line carries: net, tax, total.
+    */
   private def buildLine(invoiceId: InvoiceId, in: LineInput): InvoiceLine = {
     val netBd = in.quantity.value * BigDecimal(in.unitPriceMinor.value)
-    val netL = netBd.toLong.max(1L) // Iron AmountMinor > 0
-    val taxL = (netBd * in.taxBps.value / 10_000L).toLong.max(0L)
-    val totL = netL + taxL
+    val netL  = netBd.toLong.max(1L) // Iron AmountMinor > 0
+    val taxL  = (netBd * in.taxBps.value / 10_000L).toLong.max(0L)
+    val totL  = netL + taxL
     InvoiceLine(
       id = InvoiceLineId.assume(UUID.randomUUID()),
       invoiceId = invoiceId,
@@ -165,4 +176,5 @@ object InvoicingService {
       totalMinor = AmountMinor.applyUnsafe(totL)
     )
   }
+
 }

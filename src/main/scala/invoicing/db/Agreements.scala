@@ -1,21 +1,23 @@
 package invoicing.db
 
-import invoicing.domain.*
+import java.time.{Instant, ZoneOffset}
 
 import cats.effect.*
 import cats.syntax.all.*
+
+import invoicing.domain.*
 import skunk.*
 import skunk.implicits.*
 
-import java.time.{Instant, ZoneOffset}
-
 trait Agreements[F[_]] {
+
   def create(a: Agreement): F[Agreement]
   def find(id: AgreementId): F[Option[Agreement]]
   def listForBiller(id: BusinessId): F[List[Agreement]]
   def listForPayer(id: BusinessId): F[List[Agreement]]
   def listSigned: F[List[Agreement]]
   def updateStatus(id: AgreementId, status: AgreementStatus, at: Instant): F[Unit]
+
 }
 
 object Agreements {
@@ -23,12 +25,12 @@ object Agreements {
   import Codecs.{
     agreementCore,
     agreementId as agreementIdC,
-    businessId as businessIdC,
     agreementStatus as statusC,
-    serviceId as serviceIdC,
-    title,
     body,
-    currency as currencyC
+    businessId as businessIdC,
+    currency as currencyC,
+    serviceId as serviceIdC,
+    title
   }
   import skunk.codec.all.timestamptz
 
@@ -39,7 +41,8 @@ object Agreements {
         s.transaction.use { _ =>
           for {
             tup <- s.prepare(Q.insertCore).flatMap(_.unique(coreTuple(a)))
-            _ <- s.prepare(Q.linkService).flatMap(pc => a.serviceIds.traverse_(sid => pc.execute((a.id, sid))))
+            _   <- s.prepare(Q.linkService)
+                   .flatMap(pc => a.serviceIds.traverse_(sid => pc.execute((a.id, sid))))
           } yield fromCore(tup, a.serviceIds)
         }
       }
@@ -48,7 +51,7 @@ object Agreements {
       pool.use { s =>
         for {
           core <- s.prepare(Q.byId).flatMap(_.option(id))
-          out <- core.traverse(c => loadServices(s, c._1).map(fromCore(c, _)))
+          out  <- core.traverse(c => loadServices(s, c._1).map(fromCore(c, _)))
         } yield out
       }
 
@@ -73,7 +76,9 @@ object Agreements {
       }
 
     def updateStatus(id: AgreementId, status: AgreementStatus, at: Instant): F[Unit] =
-      pool.use(_.prepare(Q.setStatus).flatMap(_.execute((status, at.atOffset(ZoneOffset.UTC), id)))).void
+      pool
+        .use(_.prepare(Q.setStatus).flatMap(_.execute((status, at.atOffset(ZoneOffset.UTC), id))))
+        .void
 
     private def loadServices(s: Session[F], id: AgreementId): F[List[ServiceId]] =
       s.prepare(Q.servicesFor).flatMap(_.stream(id, 32).compile.toList)
@@ -140,7 +145,9 @@ object Agreements {
             ON CONFLICT DO NOTHING""".command
 
     val servicesFor: Query[AgreementId, ServiceId] =
-      sql"SELECT service_id FROM agreement_services WHERE agreement_id = $agreementIdC".query(serviceIdC)
+      sql"SELECT service_id FROM agreement_services WHERE agreement_id = $agreementIdC".query(
+        serviceIdC
+      )
 
     val byId: Query[AgreementId, AgreementCore] =
       sql"""SELECT id, biller_id, payer_id, title, body, currency, status,
@@ -150,12 +157,16 @@ object Agreements {
     val byBiller: Query[BusinessId, AgreementCore] =
       sql"""SELECT id, biller_id, payer_id, title, body, currency, status,
                    sent_at, signed_at, terminated_at, created_at
-            FROM agreements WHERE biller_id = $businessIdC ORDER BY created_at DESC""".query(agreementCore)
+            FROM agreements WHERE biller_id = $businessIdC ORDER BY created_at DESC""".query(
+        agreementCore
+      )
 
     val byPayer: Query[BusinessId, AgreementCore] =
       sql"""SELECT id, biller_id, payer_id, title, body, currency, status,
                    sent_at, signed_at, terminated_at, created_at
-            FROM agreements WHERE payer_id = $businessIdC ORDER BY created_at DESC""".query(agreementCore)
+            FROM agreements WHERE payer_id = $businessIdC ORDER BY created_at DESC""".query(
+        agreementCore
+      )
 
     val signed: Query[Void, AgreementCore] =
       sql"""SELECT id, biller_id, payer_id, title, body, currency, status,
@@ -174,5 +185,7 @@ object Agreements {
 
     // Silence unused-codec warnings for codecs only used via interpolation upstream.
     val _ = (title, body, currencyC)
+
   }
+
 }

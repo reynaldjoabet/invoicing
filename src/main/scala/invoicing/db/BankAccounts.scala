@@ -1,16 +1,18 @@
 package invoicing.db
 
-import invoicing.domain.*
-
 import cats.effect.*
 import cats.syntax.all.*
+
+import invoicing.domain.*
 import skunk.*
 import skunk.implicits.*
 
 trait BankAccounts[F[_]] {
+
   def add(a: BankAccount): F[BankAccount]
   def listFor(businessId: BusinessId): F[List[BankAccount]]
   def find(id: BankAccountId): F[Option[BankAccount]]
+
 }
 
 object BankAccounts {
@@ -34,7 +36,9 @@ object BankAccounts {
                                        currency, is_default, created_at)
             VALUES $accountC
             RETURNING id, business_id, account_type, holder_name, iban, bic,
-                      routing_number, account_number, currency, is_default, created_at""".query(accountC)
+                      routing_number, account_number, currency, is_default, created_at""".query(
+        accountC
+      )
 
     val listFor: Query[BusinessId, BankAccount] =
       sql"""SELECT id, business_id, account_type, holder_name, iban, bic,
@@ -46,5 +50,7 @@ object BankAccounts {
       sql"""SELECT id, business_id, account_type, holder_name, iban, bic,
                    routing_number, account_number, currency, is_default, created_at
             FROM bank_accounts WHERE id = $accountIdC""".query(accountC)
+
   }
+
 }

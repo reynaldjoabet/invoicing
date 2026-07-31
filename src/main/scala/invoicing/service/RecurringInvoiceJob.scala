@@ -1,20 +1,21 @@
 package invoicing.service
 
-import invoicing.domain.*
-import invoicing.db.*
+import java.time.temporal.ChronoUnit
+import java.time.LocalDate
 
 import cats.effect.*
 import cats.syntax.all.*
 
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
+import invoicing.db.*
+import invoicing.domain.*
 
-/** Background job that issues invoices for recurring services on their due date. Runs once a day. Picks every active
-  * recurring service tied to a signed agreement and emits an invoice if the configured interval has elapsed since the
-  * last invoice for that (biller, payer, service).
+/**
+  * Background job that issues invoices for recurring services on their due date. Runs once a day.
+  * Picks every active recurring service tied to a signed agreement and emits an invoice if the
+  * configured interval has elapsed since the last invoice for that (biller, payer, service).
   *
-  * Idempotent: re-running on the same day is a no-op because the previous invoice's `created_at` falls within the
-  * lookback window.
+  * Idempotent: re-running on the same day is a no-op because the previous invoice's `created_at`
+  * falls within the lookback window.
   */
 trait RecurringInvoiceJob[F[_]] {
   def runOnce(asOf: LocalDate): F[RecurringInvoiceJob.Summary]
@@ -36,29 +37,33 @@ object RecurringInvoiceJob {
     def runOnce(asOf: LocalDate): F[Summary] =
       for {
         signed <- agreements.listSigned
-        pairs <- signed.flatTraverse { a =>
-          a.serviceIds
-            .traverse(sid => services.find(sid).map(_.map((a, _))))
-            .map(_.flatten)
-        }
+        pairs  <- signed.flatTraverse { a =>
+                   a.serviceIds
+                     .traverse(sid => services.find(sid).map(_.map((a, _))))
+                     .map(_.flatten)
+                 }
         summary <- pairs.foldM(Summary(0, 0)) { case (acc, (agr, svc)) =>
-          (svc.kind, svc.interval) match {
-            case (ServiceKind.Recurring, Some(interval)) =>
-              lastInvoiceFor(agr.billerId, agr.payerId, svc.id).flatMap { last =>
-                if (isDue(last, asOf, interval))
-                  issueOne(agr, svc, asOf).map {
-                    case Right(_) => acc.copy(generated = acc.generated + 1)
-                    case Left(_)  => acc.copy(skipped = acc.skipped + 1)
-                  }
-                else
-                  Concurrent[F].pure(acc.copy(skipped = acc.skipped + 1))
-              }
-            case _ => Concurrent[F].pure(acc)
-          }
-        }
+                     (svc.kind, svc.interval) match {
+                       case (ServiceKind.Recurring, Some(interval)) =>
+                         lastInvoiceFor(agr.billerId, agr.payerId, svc.id).flatMap { last =>
+                           if (isDue(last, asOf, interval))
+                             issueOne(agr, svc, asOf).map {
+                               case Right(_) => acc.copy(generated = acc.generated + 1)
+                               case Left(_)  => acc.copy(skipped = acc.skipped + 1)
+                             }
+                           else
+                             Concurrent[F].pure(acc.copy(skipped = acc.skipped + 1))
+                         }
+                       case _ => Concurrent[F].pure(acc)
+                     }
+                   }
       } yield summary
 
-    private def issueOne(agr: Agreement, svc: Service, asOf: LocalDate): F[Either[InvoicingService.Error, Invoice]] = {
+    private def issueOne(
+        agr: Agreement,
+        svc: Service,
+        asOf: LocalDate
+    ): F[Either[InvoicingService.Error, Invoice]] = {
       val line = InvoicingService.LineInput(
         serviceId = Some(svc.id),
         description = svc.title,
@@ -80,7 +85,9 @@ object RecurringInvoiceJob {
     }
   }
 
-  /** Returns true when `last` is far enough in the past that another invoice is due. */
+  /**
+    * Returns true when `last` is far enough in the past that another invoice is due.
+    */
   def isDue(last: Option[LocalDate], today: LocalDate, interval: RecurringInterval): Boolean = {
     val daysSince = last.fold(Long.MaxValue)(d => ChronoUnit.DAYS.between(d, today))
     val threshold = interval match {
@@ -91,4 +98,5 @@ object RecurringInvoiceJob {
     }
     daysSince >= threshold
   }
+
 }

@@ -1,45 +1,55 @@
 package invoicing.service
 
-import invoicing.domain.*
-import invoicing.db.*
-import invoicing.external.{Notifications, PaymentRail}
+import java.time.Instant
+import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
 
-import java.time.Instant
-import java.util.UUID
+import invoicing.db.*
+import invoicing.domain.*
+import invoicing.external.{Notifications, PaymentRail}
 
-/** Settling an invoice.
+/**
+  * Settling an invoice.
   *
-  * Cross-currency rule: if the payer's selected bank account is not in the invoice's currency, we ask the payment rail
-  * for an FX rate and debit the payer's account in *its* currency. The receipt records the rate used so the payer's
-  * accountants can reconcile against their statements.
+  * Cross-currency rule: if the payer's selected bank account is not in the invoice's currency, we
+  * ask the payment rail for an FX rate and debit the payer's account in *its* currency. The receipt
+  * records the rate used so the payer's accountants can reconcile against their statements.
   *
-  * `payAuto` is the entry point the InvoicingService calls when the payer's mode for this biller is `AutoDebit`.
+  * `payAuto` is the entry point the InvoicingService calls when the payer's mode for this biller is
+  * `AutoDebit`.
   */
 trait PaymentService[F[_]] {
 
-  def pay(invoiceId: InvoiceId, bankAccountId: BankAccountId): F[Either[PaymentService.Error, Payment]]
+  def pay(
+      invoiceId: InvoiceId,
+      bankAccountId: BankAccountId
+  ): F[Either[PaymentService.Error, Payment]]
 
-  /** Used by the auto-debit flow: looks up payer prefs + default account and pays. */
+  /**
+    * Used by the auto-debit flow: looks up payer prefs + default account and pays.
+    */
   def payAuto(
       invoice: Invoice,
       prefs: PaymentPreference,
       payerAccounts: List[BankAccount]
   ): F[Either[PaymentService.Error, Payment]]
+
 }
 
 object PaymentService {
 
   sealed trait Error
   object Error {
-    case object InvoiceNotFound extends Error
-    case object NotPayable extends Error
-    case object BankAccountNotFound extends Error
-    case object BankAccountMismatch extends Error
-    case object BillerNotApproved extends Error
+
+    case object InvoiceNotFound               extends Error
+    case object NotPayable                    extends Error
+    case object BankAccountNotFound           extends Error
+    case object BankAccountMismatch           extends Error
+    case object BillerNotApproved             extends Error
     final case class RailFailure(msg: String) extends Error
+
   }
 
   def make[F[_]: Sync](
@@ -56,7 +66,7 @@ object PaymentService {
     def pay(invoiceId: InvoiceId, bankAccountId: BankAccountId): F[Either[Error, Payment]] = {
       val gate: F[Either[Error, (Invoice, BankAccount)]] =
         for {
-          inv <- invoices.find(invoiceId)
+          inv  <- invoices.find(invoiceId)
           acct <- bankAccounts.find(bankAccountId)
         } yield (inv, acct) match {
           case (None, _)                                       => Left(Error.InvoiceNotFound)
@@ -78,7 +88,7 @@ object PaymentService {
         payerAccounts: List[BankAccount]
     ): F[Either[Error, Payment]] = {
       val preferred = prefs.defaultBankAccountId.flatMap(id => payerAccounts.find(_.id == id))
-      val fallback = payerAccounts.find(_.isDefault).orElse(payerAccounts.headOption)
+      val fallback  = payerAccounts.find(_.isDefault).orElse(payerAccounts.headOption)
       preferred.orElse(fallback) match {
         case None    => Sync[F].pure(Left(Error.BankAccountNotFound))
         case Some(a) => runRail(invoice, a)
@@ -97,12 +107,15 @@ object PaymentService {
         for {
           // Resolve the biller's default account (where funds land).
           billerAccs <- bankAccounts.listFor(inv.billerId)
-          billerAcc <- billerAccs
-            .find(a => a.isDefault && a.currency == inv.currency)
-            .orElse(billerAccs.headOption) match {
-            case None    => Sync[F].raiseError[BankAccount](new RuntimeException("biller has no payout account"))
-            case Some(a) => Sync[F].pure(a)
-          }
+          billerAcc  <- billerAccs
+                         .find(a => a.isDefault && a.currency == inv.currency)
+                         .orElse(billerAccs.headOption) match {
+                         case None =>
+                           Sync[F].raiseError[BankAccount](
+                             new RuntimeException("biller has no payout account")
+                           )
+                         case Some(a) => Sync[F].pure(a)
+                       }
 
           // FX if payer's account currency differs from invoice currency.
           fxOpt <-
@@ -113,34 +126,55 @@ object PaymentService {
           // for the converted amount. The rail computes settlement; here we just
           // pass the invoice currency and amount.
           paymentRow = Payment(
-            id = PaymentId.assume(UUID.randomUUID()),
-            invoiceId = inv.id,
-            bankAccountId = payerAcc.id,
-            amountMinor = inv.totalMinor,
-            currency = inv.currency,
-            fxRateApplied = fxOpt,
-            status = PaymentStatus.Initiated,
-            railRef = None,
-            failureReason = None,
-            initiatedAt = Instant.now(),
-            completedAt = None
-          )
-          saved <- payments.insert(paymentRow)
+                         id = PaymentId.assume(UUID.randomUUID()),
+                         invoiceId = inv.id,
+                         bankAccountId = payerAcc.id,
+                         amountMinor = inv.totalMinor,
+                         currency = inv.currency,
+                         fxRateApplied = fxOpt,
+                         status = PaymentStatus.Initiated,
+                         railRef = None,
+                         failureReason = None,
+                         initiatedAt = Instant.now(),
+                         completedAt = None
+                       )
+          saved   <- payments.insert(paymentRow)
           receipt <- rail
-            .transfer(payerAcc, billerAcc, inv.totalMinor, inv.currency, s"inv:${inv.number.value}")
-            .attempt
+                       .transfer(
+                         payerAcc,
+                         billerAcc,
+                         inv.totalMinor,
+                         inv.currency,
+                         s"inv:${inv.number.value}"
+                       )
+                       .attempt
           out <- receipt match {
-            case Right(r) =>
-              for {
-                _ <- payments.updateStatus(saved.id, r.status, Some(r.railRef), None, Some(Instant.now()))
-                _ <- if (r.status == PaymentStatus.Captured) markPaidAndNotify(inv) else Sync[F].unit
-              } yield Right[Error, Payment](saved.copy(status = r.status, railRef = Some(r.railRef)))
-            case Left(err) =>
-              val msg = Option(err.getMessage).getOrElse(err.getClass.getSimpleName)
-              payments
-                .updateStatus(saved.id, PaymentStatus.Failed, None, Some(msg), Some(Instant.now()))
-                .as(Left[Error, Payment](Error.RailFailure(msg)))
-          }
+                   case Right(r) =>
+                     for {
+                       _ <- payments.updateStatus(
+                              saved.id,
+                              r.status,
+                              Some(r.railRef),
+                              None,
+                              Some(Instant.now())
+                            )
+                       _ <- if (r.status == PaymentStatus.Captured) markPaidAndNotify(inv)
+                            else Sync[F].unit
+                     } yield Right[Error, Payment](
+                       saved.copy(status = r.status, railRef = Some(r.railRef))
+                     )
+                   case Left(err) =>
+                     val msg = Option(err.getMessage).getOrElse(err.getClass.getSimpleName)
+                     payments
+                       .updateStatus(
+                         saved.id,
+                         PaymentStatus.Failed,
+                         None,
+                         Some(msg),
+                         Some(Instant.now())
+                       )
+                       .as(Left[Error, Payment](Error.RailFailure(msg)))
+                 }
         } yield out
 
       billerGate.flatMap {
@@ -152,8 +186,9 @@ object PaymentService {
     private def markPaidAndNotify(inv: Invoice): F[Unit] =
       for {
         now <- Sync[F].delay(Instant.now())
-        _ <- invoices.markPaid(inv.id, now)
-        _ <- billerContact(inv.billerId).flatMap(_.traverse_(notifications.emailInvoicePaid(_, inv)))
+        _   <- invoices.markPaid(inv.id, now)
+        _   <-
+          billerContact(inv.billerId).flatMap(_.traverse_(notifications.emailInvoicePaid(_, inv)))
         _ <- payerContact(inv.payerId).flatMap(_.traverse_(notifications.emailInvoicePaid(_, inv)))
       } yield ()
 
@@ -162,4 +197,5 @@ object PaymentService {
       case _                                                                        => false
     }
   }
+
 }

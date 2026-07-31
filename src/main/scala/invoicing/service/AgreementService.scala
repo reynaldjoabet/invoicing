@@ -1,16 +1,17 @@
 package invoicing.service
 
-import invoicing.domain.*
-import invoicing.db.*
-import invoicing.external.Notifications
+import java.time.Instant
+import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
 
-import java.time.Instant
-import java.util.UUID
+import invoicing.db.*
+import invoicing.domain.*
+import invoicing.external.Notifications
 
 trait AgreementService[F[_]] {
+
   def draft(
       billerId: BusinessId,
       payerId: BusinessId,
@@ -19,11 +20,13 @@ trait AgreementService[F[_]] {
       currency: CurrencyCode,
       services: List[ServiceId]
   ): F[Agreement]
+
   def send(id: AgreementId): F[Unit]
   def sign(id: AgreementId): F[Unit]
   def reject(id: AgreementId): F[Unit]
   def terminate(id: AgreementId): F[Unit]
   def remind(id: AgreementId): F[Unit]
+
 }
 
 object AgreementService {
@@ -44,28 +47,28 @@ object AgreementService {
     ): F[Agreement] =
       for {
         now <- Sync[F].delay(Instant.now())
-        a = Agreement(
-          id = AgreementId.assume(UUID.randomUUID()),
-          billerId = billerId,
-          payerId = payerId,
-          title = title,
-          body = body,
-          currency = currency,
-          status = AgreementStatus.Draft,
-          serviceIds = services,
-          sentAt = None,
-          signedAt = None,
-          terminatedAt = None,
-          createdAt = now
-        )
+        a    = Agreement(
+              id = AgreementId.assume(UUID.randomUUID()),
+              billerId = billerId,
+              payerId = payerId,
+              title = title,
+              body = body,
+              currency = currency,
+              status = AgreementStatus.Draft,
+              serviceIds = services,
+              sentAt = None,
+              signedAt = None,
+              terminatedAt = None,
+              createdAt = now
+            )
         saved <- agreements.create(a)
       } yield saved
 
     def send(id: AgreementId): F[Unit] =
       for {
         now <- Sync[F].delay(Instant.now())
-        _ <- agreements.updateStatus(id, AgreementStatus.Sent, now)
-        _ <- agreements.find(id).flatMap(_.traverse_(notifyPayer))
+        _   <- agreements.updateStatus(id, AgreementStatus.Sent, now)
+        _   <- agreements.find(id).flatMap(_.traverse_(notifyPayer))
       } yield ()
 
     def sign(id: AgreementId): F[Unit] =
@@ -75,7 +78,9 @@ object AgreementService {
       Sync[F].delay(Instant.now()).flatMap(agreements.updateStatus(id, AgreementStatus.Rejected, _))
 
     def terminate(id: AgreementId): F[Unit] =
-      Sync[F].delay(Instant.now()).flatMap(agreements.updateStatus(id, AgreementStatus.Terminated, _))
+      Sync[F]
+        .delay(Instant.now())
+        .flatMap(agreements.updateStatus(id, AgreementStatus.Terminated, _))
 
     def remind(id: AgreementId): F[Unit] =
       agreements.find(id).flatMap(_.traverse_(notifyPayer))
@@ -83,4 +88,5 @@ object AgreementService {
     private def notifyPayer(a: Agreement): F[Unit] =
       contactFor(a.payerId).flatMap(_.traverse_(notifications.emailAgreementSent(_, a)))
   }
+
 }

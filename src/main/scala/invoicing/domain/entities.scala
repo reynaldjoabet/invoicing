@@ -16,7 +16,9 @@ final case class Business(
     id: BusinessId,
     name: BusinessName,
     country: CountryCode,
-    /** EU VAT for European businesses, US EIN otherwise. Exactly one is set. */
+    /**
+      * EU VAT for European businesses, US EIN otherwise. Exactly one is set.
+      */
     vat: Option[VatNumber],
     ein: Option[EinNumber],
     defaultCurrency: CurrencyCode,
@@ -24,7 +26,9 @@ final case class Business(
     createdAt: Instant
 )
 
-/** Many-to-many: a User can represent multiple Businesses. */
+/**
+  * Many-to-many: a User can represent multiple Businesses.
+  */
 final case class Membership(
     id: MembershipId,
     userId: UserId,
@@ -41,10 +45,14 @@ final case class BankAccount(
     businessId: BusinessId,
     accountType: BankAccountType,
     holderName: FullName,
-    /** Populated for IBAN-style accounts (EU + many others). */
+    /**
+      * Populated for IBAN-style accounts (EU + many others).
+      */
     iban: Option[Iban],
     bic: Option[Bic],
-    /** Populated for US-style ACH. */
+    /**
+      * Populated for US-style ACH.
+      */
     routingNumber: Option[RoutingNumber],
     accountNumber: Option[AccountNumber],
     currency: CurrencyCode,
@@ -60,12 +68,18 @@ final case class Service(
     title: Title,
     description: Body,
     kind: ServiceKind,
-    /** Set when `kind` is `Recurring`. */
+    /**
+      * Set when `kind` is `Recurring`.
+      */
     interval: Option[RecurringInterval],
-    /** Unit price in minor units of `currency`. */
+    /**
+      * Unit price in minor units of `currency`.
+      */
     unitPriceMinor: AmountMinor,
     currency: CurrencyCode,
-    /** Default tax rate for invoice lines (overridable per line). */
+    /**
+      * Default tax rate for invoice lines (overridable per line).
+      */
     taxBps: TaxBps,
     archived: Boolean,
     createdAt: Instant
@@ -79,7 +93,9 @@ final case class Agreement(
     body: Body,
     currency: CurrencyCode,
     status: AgreementStatus,
-    /** Services covered by this agreement. */
+    /**
+      * Services covered by this agreement.
+      */
     serviceIds: List[ServiceId],
     sentAt: Option[Instant],
     signedAt: Option[Instant],
@@ -92,13 +108,17 @@ final case class Agreement(
 final case class InvoiceLine(
     id: InvoiceLineId,
     invoiceId: InvoiceId,
-    /** Optional reference to the service that produced this line. */
+    /**
+      * Optional reference to the service that produced this line.
+      */
     serviceId: Option[ServiceId],
     description: Title,
     quantity: LineQty,
     unitPriceMinor: AmountMinor,
     taxBps: TaxBps,
-    /** Convenience denormalisation: net = qty * unitPriceMinor, tax = net * taxBps/10_000. */
+    /**
+      * Convenience denormalisation: net = qty * unitPriceMinor, tax = net * taxBps/10_000.
+      */
     netMinor: AmountMinor,
     taxMinor: TaxMinor,
     totalMinor: AmountMinor
@@ -111,7 +131,9 @@ final case class Invoice(
     payerId: BusinessId,
     agreementId: Option[AgreementId],
     currency: CurrencyCode,
-    /** Header totals computed across all lines. */
+    /**
+      * Header totals computed across all lines.
+      */
     netMinor: AmountMinor,
     taxMinor: TaxMinor,
     totalMinor: AmountMinor,
@@ -130,16 +152,21 @@ final case class Invoice(
 final case class Payment(
     id: PaymentId,
     invoiceId: InvoiceId,
-    /** Which payer bank account was used. */
+    /**
+      * Which payer bank account was used.
+      */
     bankAccountId: BankAccountId,
     amountMinor: AmountMinor,
     currency: CurrencyCode,
-    /** Multi-currency settlement: rate at which we converted *if* the payer's account currency differs from the invoice
-      * currency.
+    /**
+      * Multi-currency settlement: rate at which we converted *if* the payer's account currency
+      * differs from the invoice currency.
       */
     fxRateApplied: Option[BigDecimal],
     status: PaymentStatus,
-    /** Upstream rail reference (e.g. SEPA end-to-end id, ACH trace number). */
+    /**
+      * Upstream rail reference (e.g. SEPA end-to-end id, ACH trace number).
+      */
     railRef: Option[String],
     failureReason: Option[String],
     initiatedAt: Instant,
@@ -148,7 +175,9 @@ final case class Payment(
 
 // ---------- Payer-side preferences ----------
 
-/** One row per (payer, biller) pair: how the payer wants to handle invoices from this specific biller.
+/**
+  * One row per (payer, biller) pair: how the payer wants to handle invoices from this specific
+  * biller.
   */
 final case class PaymentPreference(
     payerId: BusinessId,

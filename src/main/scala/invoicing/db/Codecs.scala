@@ -1,61 +1,82 @@
 package invoicing.db
 
-import invoicing.domain.*
+import java.time.{Instant, LocalDate, ZoneOffset}
 
+import invoicing.domain.*
 import skunk.*
 import skunk.codec.all.*
 import org.typelevel.twiddles.syntax.*
 import io.github.iltotore.iron.constraint.all.*
 import io.github.iltotore.iron.skunk.*
-import java.time.{Instant, LocalDate, ZoneOffset}
 
 object Codecs {
 
   // ---- identifier codecs ----
-  val userId: Codec[UserId] = uuid.imap(UserId.assume)(_.value)
-  val businessId: Codec[BusinessId] = uuid.imap(BusinessId.assume)(_.value)
-  val membershipId: Codec[MembershipId] = uuid.imap(MembershipId.assume)(_.value)
+  val userId: Codec[UserId]               = uuid.imap(UserId.assume)(_.value)
+  val businessId: Codec[BusinessId]       = uuid.imap(BusinessId.assume)(_.value)
+  val membershipId: Codec[MembershipId]   = uuid.imap(MembershipId.assume)(_.value)
   val bankAccountId: Codec[BankAccountId] = uuid.imap(BankAccountId.assume)(_.value)
-  val serviceId: Codec[ServiceId] = uuid.imap(ServiceId.assume)(_.value)
-  val agreementId: Codec[AgreementId] = uuid.imap(AgreementId.assume)(_.value)
-  val invoiceId: Codec[InvoiceId] = uuid.imap(InvoiceId.assume)(_.value)
+  val serviceId: Codec[ServiceId]         = uuid.imap(ServiceId.assume)(_.value)
+  val agreementId: Codec[AgreementId]     = uuid.imap(AgreementId.assume)(_.value)
+  val invoiceId: Codec[InvoiceId]         = uuid.imap(InvoiceId.assume)(_.value)
   val invoiceLineId: Codec[InvoiceLineId] = uuid.imap(InvoiceLineId.assume)(_.value)
-  val paymentId: Codec[PaymentId] = uuid.imap(PaymentId.assume)(_.value)
+  val paymentId: Codec[PaymentId]         = uuid.imap(PaymentId.assume)(_.value)
 
   // ---- scalars ----
-  val email: Codec[Email] = varchar(254).refined[EmailConstraint].imap(Email.assume)(_.value)
+  val email: Codec[Email]               = varchar(254).refined[EmailConstraint].imap(Email.assume)(_.value)
   val passwordHash: Codec[PasswordHash] = varchar(120).imap(PasswordHash.assume)(_.value)
-  val fullName: Codec[FullName] = varchar(200).refined[Not[Blank] & MaxLength[200]].imap(FullName.assume)(_.value)
+
+  val fullName: Codec[FullName] =
+    varchar(200).refined[Not[Blank] & MaxLength[200]].imap(FullName.assume)(_.value)
 
   val businessName: Codec[BusinessName] =
     varchar(200).refined[Not[Blank] & MaxLength[200]].imap(BusinessName.assume)(_.value)
-  val countryCode: Codec[CountryCode] = bpchar(2).refined[Match["^[A-Z]{2}$"]].imap(CountryCode.assume)(_.value)
+
+  val countryCode: Codec[CountryCode] =
+    bpchar(2).refined[Match["^[A-Z]{2}$"]].imap(CountryCode.assume)(_.value)
+
   val vatNumber: Codec[VatNumber] =
     varchar(16).refined[Match["^[A-Z]{2}[A-Z0-9]{8,12}$"]].imap(VatNumber.assume)(_.value)
+
   val einNumber: Codec[EinNumber] =
     bpchar(9).refined[FixedLength[9] & Match["^[0-9]{9}$"]].imap(EinNumber.assume)(_.value)
 
-  val currency: Codec[CurrencyCode] = bpchar(3).refined[Match["^[A-Z]{3}$"]].imap(CurrencyCode.assume)(_.value)
+  val currency: Codec[CurrencyCode] =
+    bpchar(3).refined[Match["^[A-Z]{3}$"]].imap(CurrencyCode.assume)(_.value)
+
   val amountMinor: Codec[AmountMinor] = int8.refined[Positive].imap(AmountMinor.assume)(_.value)
-  val taxMinor: Codec[TaxMinor] = int8.refined[GreaterEqual[0]].imap(TaxMinor.assume)(_.value)
-  val lineQty: Codec[LineQty] = numeric.eimap[LineQty](LineQty.positive)(_.value)
-  val taxBps: Codec[TaxBps] = int4.refined[GreaterEqual[0] & LessEqual[10_000]].imap(TaxBps.assume)(_.value)
+  val taxMinor: Codec[TaxMinor]       = int8.refined[GreaterEqual[0]].imap(TaxMinor.assume)(_.value)
+  val lineQty: Codec[LineQty]         = numeric.eimap[LineQty](LineQty.positive)(_.value)
+
+  val taxBps: Codec[TaxBps] =
+    int4.refined[GreaterEqual[0] & LessEqual[10_000]].imap(TaxBps.assume)(_.value)
 
   val iban: Codec[Iban] =
-    varchar(34).refined[MinLength[15] & MaxLength[34] & Match["^[A-Z]{2}[0-9]{2}[A-Z0-9]+$"]].imap(Iban.assume)(_.value)
+    varchar(34)
+      .refined[MinLength[15] & MaxLength[34] & Match["^[A-Z]{2}[0-9]{2}[A-Z0-9]+$"]]
+      .imap(Iban.assume)(_.value)
+
   val bic: Codec[Bic] =
-    varchar(11).refined[(MinLength[8] & MaxLength[11]) & Match["^[A-Z0-9]{8}([A-Z0-9]{3})?$"]].imap(Bic.assume)(_.value)
+    varchar(11)
+      .refined[(MinLength[8] & MaxLength[11]) & Match["^[A-Z0-9]{8}([A-Z0-9]{3})?$"]]
+      .imap(Bic.assume)(_.value)
+
   val routingNumber: Codec[RoutingNumber] =
     bpchar(9).refined[FixedLength[9] & Match["^[0-9]{9}$"]].imap(RoutingNumber.assume)(_.value)
+
   val accountNumber: Codec[AccountNumber] =
-    varchar(34).refined[MinLength[6] & MaxLength[34] & Match["^[A-Z0-9]+$"]].imap(AccountNumber.assume)(_.value)
+    varchar(34)
+      .refined[MinLength[6] & MaxLength[34] & Match["^[A-Z0-9]+$"]]
+      .imap(AccountNumber.assume)(_.value)
 
   val invoiceNumber: Codec[InvoiceNumber] =
     varchar(40)
       .refined[MinLength[1] & MaxLength[40] & Match["^[A-Z0-9][A-Z0-9/-]{0,39}$"]]
       .imap(InvoiceNumber.assume)(_.value)
 
-  val title: Codec[Title] = varchar(200).refined[Not[Blank] & MaxLength[200]].imap(Title.assume)(_.value)
+  val title: Codec[Title] =
+    varchar(200).refined[Not[Blank] & MaxLength[200]].imap(Title.assume)(_.value)
+
   val body: Codec[Body] = text.refined[Not[Blank] & MaxLength[8000]].imap(Body.assume)(_.value)
 
   // ---- enums ----
@@ -89,7 +110,7 @@ object Codecs {
     case "quarterly" => Right(RecurringInterval.Quarterly)
     case "annual"    => Right(RecurringInterval.Annual)
     case o           => Left(s"unknown interval: $o")
-  } { _.toString.toLowerCase }
+  }(_.toString.toLowerCase)
 
   val agreementStatus: Codec[AgreementStatus] = varchar(16).eimap[AgreementStatus] {
     case "draft"      => Right(AgreementStatus.Draft)
@@ -98,7 +119,7 @@ object Codecs {
     case "rejected"   => Right(AgreementStatus.Rejected)
     case "terminated" => Right(AgreementStatus.Terminated)
     case o            => Left(s"unknown agreement status: $o")
-  } { _.toString.toLowerCase }
+  }(_.toString.toLowerCase)
 
   val invoiceStatus: Codec[InvoiceStatus] = varchar(20).eimap[InvoiceStatus] {
     case "draft"          => Right(InvoiceStatus.Draft)
@@ -121,7 +142,7 @@ object Codecs {
     case "manual" => Right(InvoiceDeliveryMode.Manual)
     case "auto"   => Right(InvoiceDeliveryMode.Auto)
     case o        => Left(s"unknown delivery mode: $o")
-  } { _.toString.toLowerCase }
+  }(_.toString.toLowerCase)
 
   val autoPaymentMode: Codec[AutoPaymentMode] = varchar(16).eimap[AutoPaymentMode] {
     case "manual_approval" => Right(AutoPaymentMode.ManualApproval)
@@ -139,7 +160,7 @@ object Codecs {
     case "failed"     => Right(PaymentStatus.Failed)
     case "refunded"   => Right(PaymentStatus.Refunded)
     case o            => Left(s"unknown payment status: $o")
-  } { _.toString.toLowerCase }
+  }(_.toString.toLowerCase)
 
   val bankAccountType: Codec[BankAccountType] = varchar(16).eimap[BankAccountType] {
     case "iban"   => Right(BankAccountType.Iban)
@@ -161,15 +182,21 @@ object Codecs {
   // an Iso for >2 fields. We bridge with explicit `imap` and nested destructuring.
 
   val user: Codec[User] =
-    (userId *: email *: passwordHash *: fullName *: instant).imap { case (id, (em, (pw, (fn, ca)))) =>
-      User(id, em, pw, fn, ca)
+    (userId *: email *: passwordHash *: fullName *: instant).imap {
+      case (id, (em, (pw, (fn, ca)))) =>
+        User(id, em, pw, fn, ca)
     }(u => (u.id, (u.email, (u.passwordHash, (u.fullName, u.createdAt)))))
 
   val business: Codec[Business] =
     (businessId *: businessName *: countryCode *: vatNumber.opt *: einNumber.opt *: currency *: kybStatus *: instant)
       .imap { case (id, (nm, (co, (vt, (en, (cu, (ks, ca))))))) =>
         Business(id, nm, co, vt, en, cu, ks, ca)
-      }(b => (b.id, (b.name, (b.country, (b.vat, (b.ein, (b.defaultCurrency, (b.kybStatus, b.createdAt))))))))
+      }(b =>
+        (
+          b.id,
+          (b.name, (b.country, (b.vat, (b.ein, (b.defaultCurrency, (b.kybStatus, b.createdAt))))))
+        )
+      )
 
   val membership: Codec[Membership] =
     (membershipId *: userId *: businessId *: businessRole *: instant *: instant.opt).imap {
@@ -179,8 +206,9 @@ object Codecs {
   val bankAccount: Codec[BankAccount] =
     (bankAccountId *: businessId *: bankAccountType *: fullName *:
       iban.opt *: bic.opt *: routingNumber.opt *: accountNumber.opt *:
-      currency *: bool *: instant).imap { case (id, (bid, (at, (hn, (ib, (bi, (rn, (an, (cu, (df, ca)))))))))) =>
-      BankAccount(id, bid, at, hn, ib, bi, rn, an, cu, df, ca)
+      currency *: bool *: instant).imap {
+      case (id, (bid, (at, (hn, (ib, (bi, (rn, (an, (cu, (df, ca)))))))))) =>
+        BankAccount(id, bid, at, hn, ib, bi, rn, an, cu, df, ca)
     }(a =>
       (
         a.id,
@@ -190,7 +218,13 @@ object Codecs {
             a.accountType,
             (
               a.holderName,
-              (a.iban, (a.bic, (a.routingNumber, (a.accountNumber, (a.currency, (a.isDefault, a.createdAt))))))
+              (
+                a.iban,
+                (
+                  a.bic,
+                  (a.routingNumber, (a.accountNumber, (a.currency, (a.isDefault, a.createdAt))))
+                )
+              )
             )
           )
         )
@@ -211,7 +245,13 @@ object Codecs {
             s.title,
             (
               s.description,
-              (s.kind, (s.interval, (s.unitPriceMinor, (s.currency, (s.taxBps, (s.archived, s.createdAt))))))
+              (
+                s.kind,
+                (
+                  s.interval,
+                  (s.unitPriceMinor, (s.currency, (s.taxBps, (s.archived, s.createdAt))))
+                )
+              )
             )
           )
         )
@@ -247,31 +287,51 @@ object Codecs {
   val invoice: Codec[Invoice] =
     (invoiceId *: invoiceNumber *: businessId *: businessId *: agreementId.opt *: currency *:
       amountMinor *: taxMinor *: amountMinor *: date *: date *:
-      invoiceStatus *: invoiceDeliveryMode *: body.opt *: instant *: instant.opt *: instant.opt).imap {
-      case (id, (num, (bid, (pid, (aid, (cu, (nm, (tm, (tot, (io, (du, (st, (dm, (nt, (ca, (sa, pa)))))))))))))))) =>
-        Invoice(id, num, bid, pid, aid, cu, nm, tm, tot, io, du, st, dm, nt, ca, sa, pa)
-    }(i =>
-      (
-        i.id,
-        (
-          i.number,
-          (
-            i.billerId,
-            (
-              i.payerId,
+      invoiceStatus *: invoiceDeliveryMode *: body.opt *: instant *: instant.opt *: instant.opt)
+      .imap {
+        case (
+              id,
               (
-                i.agreementId,
+                num,
                 (
-                  i.currency,
+                  bid,
                   (
-                    i.netMinor,
+                    pid,
+                    (aid, (cu, (nm, (tm, (tot, (io, (du, (st, (dm, (nt, (ca, (sa, pa))))))))))))
+                  )
+                )
+              )
+            ) =>
+          Invoice(id, num, bid, pid, aid, cu, nm, tm, tot, io, du, st, dm, nt, ca, sa, pa)
+      }(i =>
+        (
+          i.id,
+          (
+            i.number,
+            (
+              i.billerId,
+              (
+                i.payerId,
+                (
+                  i.agreementId,
+                  (
+                    i.currency,
                     (
-                      i.taxMinor,
+                      i.netMinor,
                       (
-                        i.totalMinor,
+                        i.taxMinor,
                         (
-                          i.issuedOn,
-                          (i.dueOn, (i.status, (i.deliveryMode, (i.notes, (i.createdAt, (i.sentAt, i.paidAt))))))
+                          i.totalMinor,
+                          (
+                            i.issuedOn,
+                            (
+                              i.dueOn,
+                              (
+                                i.status,
+                                (i.deliveryMode, (i.notes, (i.createdAt, (i.sentAt, i.paidAt))))
+                              )
+                            )
+                          )
                         )
                       )
                     )
@@ -282,12 +342,12 @@ object Codecs {
           )
         )
       )
-    )
 
   val invoiceLine: Codec[InvoiceLine] =
     (invoiceLineId *: invoiceId *: serviceId.opt *: title *: lineQty *: amountMinor *: taxBps *:
-      amountMinor *: taxMinor *: amountMinor).imap { case (id, (iid, (sid, (de, (qt, (up, (tb, (nm, (tm, tot))))))))) =>
-      InvoiceLine(id, iid, sid, de, qt, up, tb, nm, tm, tot)
+      amountMinor *: taxMinor *: amountMinor).imap {
+      case (id, (iid, (sid, (de, (qt, (up, (tb, (nm, (tm, tot))))))))) =>
+        InvoiceLine(id, iid, sid, de, qt, up, tb, nm, tm, tot)
     }(l =>
       (
         l.id,
@@ -295,7 +355,10 @@ object Codecs {
           l.invoiceId,
           (
             l.serviceId,
-            (l.description, (l.quantity, (l.unitPriceMinor, (l.taxBps, (l.netMinor, (l.taxMinor, l.totalMinor))))))
+            (
+              l.description,
+              (l.quantity, (l.unitPriceMinor, (l.taxBps, (l.netMinor, (l.taxMinor, l.totalMinor)))))
+            )
           )
         )
       )
@@ -304,8 +367,9 @@ object Codecs {
   val payment: Codec[Payment] =
     (paymentId *: invoiceId *: bankAccountId *: amountMinor *: currency *:
       numeric.opt *: paymentStatus *: varchar(128).opt *: varchar(512).opt *:
-      instant *: instant.opt).imap { case (id, (iid, (bid, (am, (cu, (fx, (st, (rr, (fr, (ia, ca)))))))))) =>
-      Payment(id, iid, bid, am, cu, fx, st, rr, fr, ia, ca)
+      instant *: instant.opt).imap {
+      case (id, (iid, (bid, (am, (cu, (fx, (st, (rr, (fr, (ia, ca)))))))))) =>
+        Payment(id, iid, bid, am, cu, fx, st, rr, fr, ia, ca)
     }(p =>
       (
         p.id,
@@ -317,11 +381,15 @@ object Codecs {
               p.amountMinor,
               (
                 p.currency,
-                (p.fxRateApplied, (p.status, (p.railRef, (p.failureReason, (p.initiatedAt, p.completedAt)))))
+                (
+                  p.fxRateApplied,
+                  (p.status, (p.railRef, (p.failureReason, (p.initiatedAt, p.completedAt))))
+                )
               )
             )
           )
         )
       )
     )
+
 }

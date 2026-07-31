@@ -1,27 +1,31 @@
 package invoicing.service
 
-import invoicing.domain.*
-import invoicing.db.Users
-
-import cats.effect.*
-import cats.syntax.all.*
-import com.password4j.Password
-
 import java.time.Instant
 import java.util.UUID
 
+import cats.effect.*
+import cats.syntax.all.*
+
+import invoicing.db.Users
+import invoicing.domain.*
+import com.password4j.Password
+
 trait Auth[F[_]] {
+
   def signup(email: Email, password: String, fullName: FullName): F[Either[Auth.Error, User]]
   def login(email: Email, password: String): F[Either[Auth.Error, User]]
+
 }
 
 object Auth {
 
   sealed trait Error
   object Error {
-    case object EmailTaken extends Error
+
+    case object EmailTaken         extends Error
     case object InvalidCredentials extends Error
-    case object PasswordTooWeak extends Error
+    case object PasswordTooWeak    extends Error
+
   }
 
   def make[F[_]: Sync](users: Users[F]): Auth[F] = new Auth[F] {
@@ -35,8 +39,14 @@ object Auth {
             case None    =>
               for {
                 hash <- Sync[F].delay(Password.hash(password).withBcrypt().getResult)
-                now <- Sync[F].delay(Instant.now())
-                u = User(UserId.assume(UUID.randomUUID()), email, PasswordHash.assume(hash), fullName, now)
+                now  <- Sync[F].delay(Instant.now())
+                u     = User(
+                      UserId.assume(UUID.randomUUID()),
+                      email,
+                      PasswordHash.assume(hash),
+                      fullName,
+                      now
+                    )
                 saved <- users.create(u)
               } yield Right(saved)
           }
@@ -52,4 +62,5 @@ object Auth {
   private def validatePassword(p: String): Either[Error, Unit] =
     if (p.length < 8 || !p.exists(_.isDigit) || !p.exists(_.isLetter)) Left(Error.PasswordTooWeak)
     else Right(())
+
 }

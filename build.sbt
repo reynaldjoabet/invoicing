@@ -1,8 +1,8 @@
 import Dependencies.*
 
-ThisBuild / scalaVersion := "3.3.8"
-ThisBuild / organization := "io.invoicing"
-ThisBuild / version := "0.1.0"
+ThisBuild / scalaVersion      := "3.3.8"
+ThisBuild / organization      := "io.invoicing"
+ThisBuild / version           := "0.1.0"
 ThisBuild / semanticdbEnabled := true
 
 ThisBuild / scalacOptions := Seq(
@@ -26,6 +26,6 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 
 lazy val root = (project in file("."))
   .settings(
-    name := "invoicing",
+    name                 := "invoicing",
     libraryDependencies ++= all
   )
