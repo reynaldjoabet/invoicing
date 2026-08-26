@@ -22,6 +22,11 @@ ThisBuild / scalacOptions := Seq(
   "-Xmax-inlines:64"
 )
 
+// iron-skunk 3.3.2 is published against skunk-core 1.0.0-M12, so 2.x trips the early-semver
+// eviction check. Its whole skunk surface is Codec#eimap, whose signature is unchanged in
+// 2.0.0-RC2 -- the 2.0 major is the otel4s 0.16 -> 1.x upgrade, which iron-skunk never touches.
+ThisBuild / libraryDependencySchemes += "org.tpolecat" %% "skunk-core" % VersionScheme.Always
+
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
 lazy val root = (project in file("."))
