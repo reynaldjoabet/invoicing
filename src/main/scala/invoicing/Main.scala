@@ -12,11 +12,16 @@ import com.comcast.ip4s.*
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.middleware.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import org.typelevel.otel4s.metrics.Meter.Implicits.noop
-import org.typelevel.otel4s.trace.Tracer.Implicits.noop
+import org.typelevel.otel4s.metrics.MeterProvider
+import org.typelevel.otel4s.trace.TracerProvider
 import skunk.Session
 
 object Main extends IOApp.Simple {
+
+  // skunk 2.0.0-RC3 builds its own Tracer/Meter, so it needs the providers rather than
+  // Tracer/Meter directly; otel4s ships Implicits.noop for the latter but not the former.
+  private given TracerProvider[IO] = TracerProvider.noop
+  private given MeterProvider[IO]  = MeterProvider.noop
 
   def run: IO[Unit] = {
     val logger = Slf4jLogger.getLogger[IO]
