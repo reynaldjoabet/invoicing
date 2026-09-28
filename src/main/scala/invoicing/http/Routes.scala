@@ -14,6 +14,11 @@ import org.http4s.*
 import org.http4s.circe.CirceEntityCodec.*
 import org.http4s.dsl.Http4sDsl
 
+// http4s matches requests on Method and Uri.Path. They are library types we cannot annotate
+// with `derives CanEqual`, so strictEquality needs them opted in explicitly.
+private given CanEqual[Method, Method]     = CanEqual.derived
+private given CanEqual[Uri.Path, Uri.Path] = CanEqual.derived
+
 /**
   * Single routing surface for biller + payer + admin.
   *

@@ -11,13 +11,17 @@ type UserId = UserId.T
 object UserId extends RefinedType[UUID, Pure] {}
 
 type BusinessId = BusinessId.T
-object BusinessId extends RefinedType[UUID, Pure] {}
+object BusinessId extends RefinedType[UUID, Pure] {
+  given CanEqual[T, T] = CanEqual.derived
+}
 
 type MembershipId = MembershipId.T
 object MembershipId extends RefinedType[UUID, Pure] {}
 
 type BankAccountId = BankAccountId.T
-object BankAccountId extends RefinedType[UUID, Pure] {}
+object BankAccountId extends RefinedType[UUID, Pure] {
+  given CanEqual[T, T] = CanEqual.derived
+}
 
 type ServiceId = ServiceId.T
 object ServiceId extends RefinedType[UUID, Pure] {}
@@ -86,6 +90,8 @@ object CountryCode extends RefinedType[String, Match["^[A-Z]{2}$"]] {
   */
 type CurrencyCode = CurrencyCode.T
 object CurrencyCode extends RefinedType[String, Match["^[A-Z]{3}$"]] {
+
+  given CanEqual[T, T] = CanEqual.derived
 
   val USD: CurrencyCode = CurrencyCode.applyUnsafe("USD")
   val EUR: CurrencyCode = CurrencyCode.applyUnsafe("EUR")
@@ -179,7 +185,7 @@ object Body extends RefinedType[String, Not[Blank] & MaxLength[8000]] {}
 
 // ---------- Enums ----------
 
-enum BusinessRole {
+enum BusinessRole derives CanEqual {
   case Owner, Admin, Member
 }
 
@@ -196,41 +202,41 @@ object BusinessRole {
 
 }
 
-enum KybStatus {
+enum KybStatus derives CanEqual {
   case NotStarted, Pending, Approved, Rejected
 }
 
-enum ServiceKind {
+enum ServiceKind derives CanEqual {
   case OneTime, Recurring
 }
 
-enum RecurringInterval {
+enum RecurringInterval derives CanEqual {
   case Weekly, Monthly, Quarterly, Annual
 }
 
-enum AgreementStatus {
+enum AgreementStatus derives CanEqual {
   case Draft, Sent, Signed, Rejected, Terminated
 }
 
-enum InvoiceStatus {
+enum InvoiceStatus derives CanEqual {
   case Draft, Sent, Paid, PartiallyPaid, Cancelled, Overdue
 }
 
-enum InvoiceDeliveryMode {
+enum InvoiceDeliveryMode derives CanEqual {
   case Manual, Auto
 }
 
 /**
   * Mode the *payer* configures for incoming invoices.
   */
-enum AutoPaymentMode {
+enum AutoPaymentMode derives CanEqual {
   case ManualApproval, AutoDebit
 }
 
-enum PaymentStatus {
+enum PaymentStatus derives CanEqual {
   case Initiated, Authorised, Captured, Failed, Refunded
 }
 
-enum BankAccountType {
+enum BankAccountType derives CanEqual {
   case Iban, UsAch, Other
 }

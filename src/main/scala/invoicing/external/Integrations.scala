@@ -15,7 +15,13 @@ trait Kyb[F[_]] {
 
 object Kyb {
 
-  enum Decision { case Pending(ref: String); case Approved; case Rejected(reason: String) }
+  enum Decision derives CanEqual {
+
+    case Pending(ref: String)
+    case Approved
+    case Rejected(reason: String)
+
+  }
 
   def sandbox[F[_]: Sync]: F[Kyb[F]] = Sync[F].pure(new Kyb[F] {
     def submit(business: Business): F[Decision] = Sync[F].pure(Decision.Approved)

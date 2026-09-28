@@ -10,30 +10,29 @@ object Dependencies {
     val circe            = "0.14.16"
     val ce               = "3.7.1"
     val log4cats         = "2.8.0"
-    val logback          = "1.6.3"
+    val logback          = "1.6.4"
     val munit            = "1.3.6"
-    val munitCE          = "2.2.0"
-    val jsoniter         = "2.40.1"
+    val munitCE          = "2.2.1"
+    val jsoniter         = "2.41.2"
     val fs2              = "3.14.0"
-    val fs2Kafka         = "4.1.0"
-    val chimney          = "1.11.0"
-    val hedgehog         = "0.14.0"
+    val fs2Kafka         = "4.1.1"
+    val hedgehog         = "0.15.0"
     val scalacheck       = "1.20.0"
     val hikaricp         = "7.1.0"
-    val flyway           = "13.7.0"
+    val flyway           = "13.8.0"
     val postgres         = "42.7.13"
     val bouncycastle     = "1.86"
     val password4j       = "1.8.4"
     val auth0            = "4.6.1"
-    val nimbusJoseJwt    = "10.9.1"
+    val nimbusJoseJwt    = "10.10"
     val nimbusOauth2Oidc = "11.38.2"
     val vault            = "5.1.0"
     val jwtScala         = "11.0.4"
     // --- Cache ---
-    val caffeine = "3.2.4"
+    val caffeine = "3.3.0"
 
     // --- Observability ---
-    val datadog = "2.60.0"
+    val datadog = "2.61.0"
     val kamon   = "2.8.1"
     val otel4s  = "1.1.0" // matches skunk-core 2.0.0-RC3's own otel4s dependency
 
@@ -41,7 +40,7 @@ object Dependencies {
     val pureconfig = "0.17.10"
 
     // --- HTTP clients ---
-    val sttp = "4.0.26"
+    val sttp = "4.0.27"
 
   }
 
@@ -66,8 +65,6 @@ object Dependencies {
     // Streaming
     "co.fs2"        %% "fs2-core"  % V.fs2,
     "org.typelevel" %% "fs2-kafka" % V.fs2Kafka,
-    // Data
-    "io.scalaland" %% "chimney" % V.chimney,
     // DB
     "org.postgresql" % "postgresql"  % V.postgres,
     "com.zaxxer"     % "HikariCP"    % V.hikaricp,

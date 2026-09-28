@@ -19,7 +19,7 @@ trait Auth[F[_]] {
 
 object Auth {
 
-  sealed trait Error
+  sealed trait Error derives CanEqual
   object Error {
 
     case object EmailTaken         extends Error
