@@ -1,7 +1,6 @@
 package invoicing.service
 
 import java.time.Instant
-import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -126,7 +125,7 @@ object PaymentService {
           // for the converted amount. The rail computes settlement; here we just
           // pass the invoice currency and amount.
           paymentRow = Payment(
-                         id = PaymentId.assume(UUID.randomUUID()),
+                         id = PaymentId.assume(UuidGen.next()),
                          invoiceId = inv.id,
                          bankAccountId = payerAcc.id,
                          amountMinor = inv.totalMinor,

@@ -177,7 +177,7 @@ final class Routes[F[_]: Concurrent: Clock](
             for {
               now <- Clock[F].realTimeInstant
               a    = BankAccount(
-                    BankAccountId.assume(UUID.randomUUID()),
+                    BankAccountId.assume(UuidGen.next()),
                     bid,
                     b.accountType,
                     b.holderName,
@@ -211,7 +211,7 @@ final class Routes[F[_]: Concurrent: Clock](
             for {
               now <- Clock[F].realTimeInstant
               s    = Service(
-                    ServiceId.assume(UUID.randomUUID()),
+                    ServiceId.assume(UuidGen.next()),
                     bid,
                     b.title,
                     b.description,

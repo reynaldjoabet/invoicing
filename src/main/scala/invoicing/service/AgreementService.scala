@@ -1,7 +1,6 @@
 package invoicing.service
 
 import java.time.Instant
-import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -48,7 +47,7 @@ object AgreementService {
       for {
         now <- Sync[F].delay(Instant.now())
         a    = Agreement(
-              id = AgreementId.assume(UUID.randomUUID()),
+              id = AgreementId.assume(UuidGen.next()),
               billerId = billerId,
               payerId = payerId,
               title = title,

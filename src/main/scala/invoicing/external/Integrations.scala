@@ -72,7 +72,7 @@ object PaymentRail {
         reference: String
     ): F[Receipt] =
       Sync[F].delay(
-        Receipt("rail_" + java.util.UUID.randomUUID().toString.take(20), PaymentStatus.Captured)
+        Receipt("rail_" + UuidGen.next().toString.take(20), PaymentStatus.Captured)
       )
     def refund(railRef: String, amount: AmountMinor): F[Unit]       = Sync[F].unit
     def fxRate(from: CurrencyCode, to: CurrencyCode): F[BigDecimal] = Sync[F].pure(BigDecimal(1))

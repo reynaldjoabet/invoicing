@@ -1,7 +1,6 @@
 package invoicing.service
 
 import java.time.{Instant, LocalDate}
-import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -103,7 +102,7 @@ object InvoicingService {
             seq   <- invoices.nextNumber(billerId)
             number = InvoiceNumber.assume(f"INV-$seq%06d")
             now   <- Sync[F].delay(Instant.now())
-            invId  = InvoiceId.assume(UUID.randomUUID())
+            invId  = InvoiceId.assume(UuidGen.next())
             built  = lines.map(buildLine(invId, _))
             netSum = built.map(_.netMinor.value).sum
             taxSum = built.map(_.taxMinor.value).sum
@@ -164,7 +163,7 @@ object InvoicingService {
     val taxL  = (netBd * in.taxBps.value / 10_000L).toLong.max(0L)
     val totL  = netL + taxL
     InvoiceLine(
-      id = InvoiceLineId.assume(UUID.randomUUID()),
+      id = InvoiceLineId.assume(UuidGen.next()),
       invoiceId = invoiceId,
       serviceId = in.serviceId,
       description = in.description,

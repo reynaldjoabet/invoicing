@@ -1,7 +1,6 @@
 package invoicing.service
 
 import java.time.Instant
-import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -41,7 +40,7 @@ object Auth {
                 hash <- Sync[F].delay(Password.hash(password).withBcrypt().getResult)
                 now  <- Sync[F].delay(Instant.now())
                 u     = User(
-                      UserId.assume(UUID.randomUUID()),
+                      UserId.assume(UuidGen.next()),
                       email,
                       PasswordHash.assume(hash),
                       fullName,

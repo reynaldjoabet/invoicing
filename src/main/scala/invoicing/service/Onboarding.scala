@@ -1,7 +1,6 @@
 package invoicing.service
 
 import java.time.Instant
-import java.util.UUID
 
 import cats.effect.*
 import cats.syntax.all.*
@@ -68,7 +67,7 @@ object Onboarding {
           for {
             now <- Sync[F].delay(Instant.now())
             b    = Business(
-                  BusinessId.assume(UUID.randomUUID()),
+                  BusinessId.assume(UuidGen.next()),
                   name,
                   country,
                   vat,
@@ -80,7 +79,7 @@ object Onboarding {
             saved <- businesses.create(b)
             _     <- businesses.addMember(
                    Membership(
-                     id = MembershipId.assume(UUID.randomUUID()),
+                     id = MembershipId.assume(UuidGen.next()),
                      userId = userId,
                      businessId = saved.id,
                      role = BusinessRole.Owner,
@@ -140,7 +139,7 @@ object Onboarding {
             .flatMap(now =>
               businesses.addMember(
                 Membership(
-                  id = MembershipId.assume(UUID.randomUUID()),
+                  id = MembershipId.assume(UuidGen.next()),
                   userId = u.id,
                   businessId = businessId,
                   role = role,
