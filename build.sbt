@@ -33,6 +33,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       core.catsEffect,
       core.fs2,
+      core.fs2Io,
       domain.uuidGenerator,
       domain.iron.core,
       domain.iron.circe,
