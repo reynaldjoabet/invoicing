@@ -5,8 +5,6 @@ import Dependencies.{config, testing}
 ThisBuild / scalaVersion := "3.9.0"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
 
-ThisBuild / crossScalaVersions := Seq("3.3.9", "3.9.0")
-
 ThisBuild / scalacOptions := Seq(
   "-encoding",
   "UTF-8",
